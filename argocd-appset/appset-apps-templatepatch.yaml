@@ -1,0 +1,76 @@
+---
+# WORKING Single ApplicationSet using templatePatch - The Missing Solution!
+apiVersion: argoproj.io/v1alpha1
+kind: ApplicationSet
+metadata:
+  name: infra-apps
+  namespace: argocd
+spec:
+  goTemplate: true
+  goTemplateOptions: ["missingkey=zero"]
+  generators:
+    - list:
+        elements:
+          - name: cert-manager
+            chart: cert-manager
+            repo: https://charts.jetstack.io
+            namespace: cert-manager
+            targetRevision: "*"
+            needsParameters: true
+          - name: external-secrets-operator
+            chart: external-secrets
+            repo: https://charts.external-secrets.io
+            namespace: external-secrets
+            targetRevision: "*"
+          - name: kargo
+            chart: kargo
+            repo: ghcr.io/akuity/kargo-charts
+            namespace: kargo
+            targetRevision: "*"
+            needsCustomValues: true
+  template:
+    metadata:
+      name: "{{.name}}"
+    spec:
+      project: default
+      source:
+        repoURL: "{{.repo}}"
+        chart: "{{.chart}}"
+        targetRevision: "{{.targetRevision}}"
+      destination:
+        server: https://kubernetes.default.svc
+        namespace: "{{.namespace}}"
+      syncPolicy:
+        automated:
+          prune: true
+          selfHeal: true
+        syncOptions:
+          - CreateNamespace=true
+  templatePatch: |
+    spec:
+      source:
+        helm:
+          {{- if .needsParameters }}
+          parameters:
+            - name: crds.enabled
+              value: "true"
+          {{- end }}
+          {{- if .needsCustomValues }}
+          valuesObject:
+            api:
+              adminAccount:
+                # SECURITY: Credentials generated on-the-fly by standalone Job
+                # The secret 'kargo-admin-credentials-generated' is created by running:
+                # kubectl apply -f kargo-inline-credential-generator.yaml
+                existingSecret: kargo-admin-credentials-generated
+                passwordHashKey: passwordHash
+                tokenSigningKeyKey: tokenSigningKey
+                tokenTTL: 24h
+              oidc:
+                enabled: false
+            controller:
+              logLevel: INFO
+              argocd:
+                integrationEnabled: true
+                namespace: argocd
+          {{- end }}
