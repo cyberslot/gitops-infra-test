@@ -1,5 +1,25 @@
+#!/bin/bash
+# generate-kargo-applicationset.sh
+# This script generates the ApplicationSet with inline credentials
+# Usage: ./generate-kargo-applicationset.sh > appset-apps-with-generated-values.yaml
+
+set -euo pipefail
+
+echo "# Generated ApplicationSet with inline Kargo credentials"
+echo "# Generated at: $(date)"
+echo "# WARNING: This contains sensitive values - handle with care"
+echo ""
+
+# Generate credentials using Kargo's official method
+pass=$(openssl rand -base64 48 | tr -d "=+/" | head -c 32)
+hashed_pass=$(htpasswd -bnBC 10 "" "$pass" | tr -d ':\n')
+signing_key=$(openssl rand -base64 48 | tr -d "=+/" | head -c 32)
+
+echo "# IMPORTANT: Save this admin password: $pass" >&2
+
+# Generate the ApplicationSet with embedded values
+cat << EOF
 ---
-# WORKING Single ApplicationSet using templatePatch - The Missing Solution!
 apiVersion: argoproj.io/v1alpha1
 kind: ApplicationSet
 metadata:
@@ -59,12 +79,10 @@ spec:
           valuesObject:
             api:
               adminAccount:
-                # SECURITY: Credentials generated on-the-fly by standalone Job
-                # The secret 'kargo-admin-credentials-generated' is created by running:
-                # kubectl apply -f kargo-inline-credential-generator.yaml
-                existingSecret: kargo-admin-credentials-generated
-                passwordHashKey: passwordHash
-                tokenSigningKeyKey: tokenSigningKey
+                # SECURITY: Generated inline at build time
+                # Admin password: $pass
+                passwordHash: "$hashed_pass"
+                tokenSigningKey: "$signing_key"
                 tokenTTL: 24h
               oidc:
                 enabled: false
@@ -74,3 +92,4 @@ spec:
                 integrationEnabled: true
                 namespace: argocd
           {{- end }}
+EOF
