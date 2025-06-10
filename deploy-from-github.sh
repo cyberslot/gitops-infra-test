@@ -6,9 +6,9 @@
 set -euo pipefail
 
 # Configuration
-REPO_URL="https://github.com/your-org/your-repo"  # CHANGE THIS
+REPO_URL="https://github.com/cyberslot/gitops-infra-test"  # CHANGE THIS
 BRANCH="main"
-SCRIPT_PATH="argocd-appset/generate-kargo-applicationset.sh"
+SCRIPT_PATH="$HOME/playground/ucp/codebase/argocd-appset/generate-kargo-applicationset.sh"
 TEMP_DIR="/tmp/kargo-deploy-$$"
 
 # Colors
@@ -41,33 +41,33 @@ trap cleanup EXIT
 # Main execution
 main() {
     log "🚀 Starting Kargo deployment from GitHub..."
-    
+
     # Check dependencies
     log "Checking dependencies..."
     command -v git >/dev/null 2>&1 || error "git is required but not installed"
     command -v kubectl >/dev/null 2>&1 || error "kubectl is required but not installed"
     command -v openssl >/dev/null 2>&1 || error "openssl is required but not installed"
     command -v htpasswd >/dev/null 2>&1 || error "htpasswd is required but not installed"
-    
+
     # Clone repository
     log "Cloning repository..."
     git clone --branch "$BRANCH" --depth 1 "$REPO_URL" "$TEMP_DIR"
-    
+
     # Verify script exists
     if [[ ! -f "$TEMP_DIR/$SCRIPT_PATH" ]]; then
         error "Script not found at $SCRIPT_PATH"
     fi
-    
+
     # Make script executable
     chmod +x "$TEMP_DIR/$SCRIPT_PATH"
-    
+
     # Execute deployment
     log "🔐 Generating Kargo credentials and deploying ApplicationSet..."
     cd "$TEMP_DIR/$(dirname "$SCRIPT_PATH")"
     ./$(basename "$SCRIPT_PATH") | kubectl apply -f -
-    
+
     log "✅ Kargo ApplicationSet deployed successfully!"
-    
+
     # Verify deployment
     log "🔍 Verifying deployment..."
     if kubectl get applicationset infra-apps -n argocd >/dev/null 2>&1; then
@@ -75,12 +75,12 @@ main() {
     else
         warn "ApplicationSet not found - deployment may still be in progress"
     fi
-    
+
     # Show status
     log "📊 Current status:"
     kubectl get applicationset infra-apps -n argocd 2>/dev/null || warn "ApplicationSet not yet available"
     kubectl get applications -n argocd 2>/dev/null || warn "Applications not yet available"
-    
+
     log "🎉 Deployment complete!"
     log "ℹ️  Check the kubectl logs above for the generated admin password"
     log "ℹ️  Monitor deployment: kubectl get applications -n argocd -w"
