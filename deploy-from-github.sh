@@ -8,7 +8,7 @@ set -euo pipefail
 # Configuration
 REPO_URL="https://github.com/cyberslot/gitops-infra-test"  # CHANGE THIS
 BRANCH="main"
-SCRIPT_PATH="$HOME/playground/ucp/codebase/argocd-appset/generate-kargo-applicationset.sh"
+SCRIPT_PATH="argocd-appset/generate-kargo-applicationset.sh"
 TEMP_DIR="/tmp/kargo-deploy-$$"
 
 # Colors
